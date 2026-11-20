@@ -1,0 +1,38 @@
+name: Build virtual scanner
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        arch: [Win32, x64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A ${{ matrix.arch }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Collect files
+        shell: pwsh
+        run: |
+          $d = "dist/${{ matrix.arch }}"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          Copy-Item build/Release/OMRFolderScanner.ds $d
+          Copy-Item build/Release/FreeImage.dll $d
+          Copy-Item install/* $d
+          Copy-Item tools/make_test_pages.py $d
+          $arch = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "x86" }
+          Set-Content -Path "$d/ARCH.txt" -Value $arch -NoNewline
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OMRFolderScanner-${{ matrix.arch }}
+          path: dist/${{ matrix.arch }}
